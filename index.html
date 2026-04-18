@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Monitoring Kinerja — Live from Google Sheets</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --navy:#0F2240; --blue:#1B4FBF; --blue-lt:#EFF6FF;
+  --teal:#0891B2; --teal-lt:#E0F9FF;
+  --green:#059669; --green-lt:#ECFDF5;
+  --amber:#D97706; --amber-lt:#FFFBEB;
+  --red:#DC2626; --red-lt:#FEE2E2;
+  --purple:#7C3AED; --purple-lt:#F5F3FF;
+  --gray-50:#F8FAFC; --gray-100:#F1F5F9; --gray-200:#E2E8F0;
+  --gray-400:#94A3B8; --gray-600:#475569; --gray-800:#1E293B;
+  --white:#FFFFFF;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.08);
+  --shadow-md:0 4px 16px rgba(0,0,0,.09);
+  --radius:12px; --radius-lg:18px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--gray-50);color:var(--gray-800);min-height:100vh;}
+
+/* HEADER */
+.header{background:var(--navy);padding:0 32px;position:sticky;top:0;z-index:100;box-shadow:0 2px 20px rgba(0,0,0,.2);}
+.header-inner{max-width:1400px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:64px;}
+.brand{display:flex;align-items:center;gap:12px;}
+.brand-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--teal),var(--blue));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;}
+.brand h1{color:#fff;font-size:14px;font-weight:700;line-height:1.2;}
+.brand p{color:rgba(255,255,255,.45);font-size:11px;}
+.header-right{display:flex;align-items:center;gap:12px;}
+.live-badge{display:flex;align-items:center;gap:6px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);color:#34D399;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;}
+.live-dot{width:7px;height:7px;border-radius:50%;background:#34D399;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(.8);}}
+.refresh-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.7);font-size:12px;padding:6px 14px;border-radius:8px;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;transition:all .2s;display:flex;align-items:center;gap:6px;}
+.refresh-btn:hover{background:rgba(255,255,255,.15);color:#fff;}
+.last-update{color:rgba(255,255,255,.35);font-size:11px;font-family:'DM Mono',monospace;}
+
+/* NAV TABS */
+.nav-tabs{background:var(--white);border-bottom:1px solid var(--gray-200);padding:0 32px;position:sticky;top:64px;z-index:99;}
+.nav-tabs-inner{max-width:1400px;margin:0 auto;display:flex;}
+.nav-tab{padding:14px 20px;font-size:13px;font-weight:600;color:var(--gray-400);border:none;background:none;cursor:pointer;border-bottom:3px solid transparent;transition:all .2s;font-family:'Plus Jakarta Sans',sans-serif;}
+.nav-tab:hover{color:var(--gray-600);}
+.nav-tab.active{color:var(--teal);border-bottom-color:var(--teal);}
+
+/* MAIN */
+.main{max-width:1400px;margin:0 auto;padding:28px 32px 80px;}
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+.section-label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gray-400);margin-bottom:14px;margin-top:28px;display:flex;align-items:center;gap:8px;}
+.section-label:first-child{margin-top:0;}
+.section-label::after{content:'';flex:1;height:1px;background:var(--gray-200);}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;}
+.kpi-card{background:var(--white);border-radius:var(--radius-lg);padding:22px 20px;border:1px solid var(--gray-200);box-shadow:var(--shadow-sm);position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s;}
+.kpi-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.kpi-card.blue::before{background:var(--blue);}  .kpi-card.green::before{background:var(--green);}
+.kpi-card.amber::before{background:var(--amber);} .kpi-card.red::before{background:var(--red);}
+.kpi-card.teal::before{background:var(--teal);}
+.kpi-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:14px;}
+.kpi-card.blue .kpi-icon{background:var(--blue-lt);}  .kpi-card.green .kpi-icon{background:var(--green-lt);}
+.kpi-card.amber .kpi-icon{background:var(--amber-lt);} .kpi-card.red .kpi-icon{background:var(--red-lt);}
+.kpi-card.teal .kpi-icon{background:var(--teal-lt);}
+.kpi-value{font-size:36px;font-weight:800;line-height:1;margin-bottom:4px;}
+.kpi-card.blue .kpi-value{color:var(--blue);}  .kpi-card.green .kpi-value{color:var(--green);}
+.kpi-card.amber .kpi-value{color:var(--amber);} .kpi-card.red .kpi-value{color:var(--red);}
+.kpi-card.teal .kpi-value{color:var(--teal);}
+.kpi-label{font-size:12px;font-weight:600;color:var(--gray-600);}
+.kpi-sub{font-size:11px;color:var(--gray-400);margin-top:2px;}
+
+/* TABLE */
+.table-wrap{background:var(--white);border-radius:var(--radius-lg);border:1px solid var(--gray-200);box-shadow:var(--shadow-sm);overflow:hidden;}
+.table-head{padding:16px 22px 13px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between;}
+.table-head h3{font-size:14px;font-weight:700;}
+.table-head span{font-size:11px;color:var(--gray-400);}
+table{width:100%;border-collapse:collapse;}
+thead th{padding:10px 13px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray-400);background:var(--gray-50);border-bottom:1px solid var(--gray-200);text-align:center;white-space:nowrap;}
+thead th.left{text-align:left;}
+thead .tw1{color:var(--navy);background:#EFF6FF;} thead .tw2{color:var(--green);background:#ECFDF5;}
+thead .tw3{color:var(--purple);background:#F5F3FF;} thead .tw4{color:var(--amber);background:#FFFBEB;}
+thead .kumul{color:var(--teal);background:#E0F9FF;}
+tbody tr{border-bottom:1px solid var(--gray-100);transition:background .15s;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:var(--gray-50);}
+tbody td{padding:12px 13px;font-size:12px;text-align:center;vertical-align:middle;}
+.td-no{font-weight:800;color:var(--blue);font-size:13px;width:36px;}
+.td-ik{text-align:left!important;color:var(--gray-700);font-size:12px;line-height:1.4;max-width:260px;}
+.td-target{font-weight:700;color:var(--amber);background:var(--amber-lt);border-radius:6px;padding:3px 9px;display:inline-block;}
+.td-tw{font-weight:600;}
+.td-tw.tw1{color:var(--navy);} .td-tw.tw2{color:var(--green);}
+.td-tw.tw3{color:var(--purple);} .td-tw.tw4{color:var(--amber);}
+.td-kumul{font-weight:700;color:var(--teal);font-size:14px;}
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;gap:3px;}
+.badge.ok{background:var(--green-lt);color:var(--green);}
+.badge.warn{background:var(--amber-lt);color:var(--amber);}
+.badge.danger{background:var(--red-lt);color:var(--red);}
+.prog-wrap{display:flex;align-items:center;gap:7px;min-width:110px;}
+.prog-bar{flex:1;height:5px;background:var(--gray-100);border-radius:10px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:10px;}
+.prog-fill.ok{background:var(--green);}  .prog-fill.warn{background:var(--amber);}
+.prog-fill.danger{background:var(--red);}
+.prog-pct{font-size:11px;font-weight:700;min-width:36px;text-align:right;}
+.prog-pct.ok{color:var(--green);}  .prog-pct.warn{color:var(--amber);}
+.prog-pct.danger{color:var(--red);}
+
+/* BULANAN TAB */
+.month-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;}
+.tw-filter-btn{padding:6px 14px;border:2px solid;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;font-family:'Plus Jakarta Sans',sans-serif;background:transparent;}
+.tw-filter-btn.tw1{border-color:var(--navy);color:var(--navy);}
+.tw-filter-btn.tw1.active{background:var(--navy);color:#fff;}
+.tw-filter-btn.tw2{border-color:var(--green);color:var(--green);}
+.tw-filter-btn.tw2.active{background:var(--green);color:#fff;}
+.tw-filter-btn.tw3{border-color:var(--purple);color:var(--purple);}
+.tw-filter-btn.tw3.active{background:var(--purple);color:#fff;}
+.tw-filter-btn.tw4{border-color:var(--amber);color:var(--amber);}
+.tw-filter-btn.tw4.active{background:var(--amber);color:#fff;}
+
+.heatmap-wrap{background:var(--white);border-radius:var(--radius-lg);border:1px solid var(--gray-200);box-shadow:var(--shadow-sm);overflow:hidden;}
+.heatmap-head{padding:16px 22px 13px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between;}
+.heatmap-table{width:100%;border-collapse:collapse;font-size:11px;}
+.heatmap-table th{padding:9px 10px;font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gray-400);background:var(--gray-50);border-bottom:1px solid var(--gray-200);text-align:center;}
+.heatmap-table th.ik-col{text-align:left;min-width:180px;}
+.heatmap-table td{padding:10px;border-bottom:1px solid var(--gray-100);text-align:center;vertical-align:middle;}
+.heatmap-table td.ik-col{text-align:left;font-size:11px;color:var(--gray-700);}
+.hm-cell{display:inline-flex;align-items:center;justify-content:center;width:36px;height:28px;border-radius:6px;font-size:11px;font-weight:700;}
+.hm-zero{background:var(--gray-100);color:var(--gray-400);}
+.hm-low{background:#FEE2E2;color:#B91C1C;}
+.hm-mid{background:#FEF3C7;color:#92400E;}
+.hm-high{background:#D1FAE5;color:#065F46;}
+
+/* CHARTS */
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.chart-card{background:var(--white);border-radius:var(--radius-lg);border:1px solid var(--gray-200);box-shadow:var(--shadow-sm);padding:22px 24px;}
+.chart-title{font-size:13px;font-weight:700;color:var(--gray-800);}
+.chart-sub{font-size:11px;color:var(--gray-400);margin-top:2px;margin-bottom:18px;}
+.chart-canvas-wrap{position:relative;height:250px;}
+.chart-canvas-wrap.tall{height:310px;}
+
+/* LOADING */
+.loading-overlay{position:fixed;inset:0;background:rgba(248,250,252,.9);backdrop-filter:blur(4px);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;transition:opacity .3s;}
+.loading-overlay.hidden{opacity:0;pointer-events:none;}
+.loading-spinner{width:48px;height:48px;border:3px solid var(--gray-200);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:16px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-text{font-size:14px;font-weight:600;color:var(--gray-600);}
+.loading-sub{font-size:12px;color:var(--gray-400);margin-top:4px;}
+
+/* ERROR */
+.error-box{background:var(--red-lt);border:1px solid #FECDD3;border-radius:12px;padding:16px 20px;margin:20px 0;font-size:13px;color:var(--red);}
+
+/* UPDATE BAR */
+.update-bar{background:var(--navy);border-radius:var(--radius);padding:13px 20px;display:flex;align-items:center;justify-content:space-between;margin-top:16px;}
+.update-bar span{color:rgba(255,255,255,.5);font-size:12px;}
+.update-bar strong{color:var(--teal);font-size:12px;}
+
+/* MONTHLY KPI */
+.monthly-kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+
+/* IK SELECTOR */
+.ik-selector{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+.ik-sel-btn{padding:5px 11px;border:1px solid var(--gray-200);background:var(--white);border-radius:8px;font-size:10px;font-weight:700;color:var(--gray-600);cursor:pointer;transition:all .2s;font-family:'Plus Jakarta Sans',sans-serif;}
+.ik-sel-btn.active{background:var(--blue);border-color:var(--blue);color:#fff;}
+
+@media(max-width:1024px){.kpi-grid{grid-template-columns:repeat(3,1fr);}.charts-grid{grid-template-columns:1fr;}}
+@media(max-width:640px){.main{padding:16px;}.kpi-grid{grid-template-columns:repeat(2,1fr);}.header,.nav-tabs{padding:0 16px;}}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loading">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Memuat data dari Google Sheets...</div>
+  <div class="loading-sub">Mohon tunggu sebentar</div>
+</div>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-inner">
+    <div class="brand">
+      <div class="brand-icon">📊</div>
+      <div>
+        <h1>Monitoring Sasaran Kinerja</h1>
+        <p>Layanan Terpadu SPK — BSN Bandung</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="live-badge"><div class="live-dot"></div>LIVE dari Google Sheets</div>
+      <span class="last-update" id="last-update">—</span>
+      <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+    </div>
+  </div>
+</header>
+
+<!-- NAV TABS -->
+<div class="nav-tabs">
+  <div class="nav-tabs-inner">
+    <button class="nav-tab active" onclick="switchTab('overview',this)">📊 Overview</button>
+    <button class="nav-tab" onclick="switchTab('bulanan',this)">📅 Monitoring Bulanan</button>
+    <button class="nav-tab" onclick="switchTab('grafik',this)">📈 Grafik</button>
+  </div>
+</div>
+
+<main class="main">
+
+  <!-- ══ TAB OVERVIEW ══ -->
+  <div class="tab-content active" id="tab-overview">
+    <div class="section-label">Ringkasan Kinerja</div>
+    <div class="kpi-grid">
+      <div class="kpi-card blue"><div class="kpi-icon">🎯</div><div class="kpi-value" id="k-total">—</div><div class="kpi-label">Total Indikator</div><div class="kpi-sub" id="k-tahun">Tahun 2026</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value" id="k-ok">—</div><div class="kpi-label">Tercapai</div><div class="kpi-sub">≥ 100% capaian</div></div>
+      <div class="kpi-card amber"><div class="kpi-icon">⚠️</div><div class="kpi-value" id="k-warn">—</div><div class="kpi-label">Perlu Perhatian</div><div class="kpi-sub">50% – 99%</div></div>
+      <div class="kpi-card red"><div class="kpi-icon">❌</div><div class="kpi-value" id="k-bad">—</div><div class="kpi-label">Belum Tercapai</div><div class="kpi-sub">&lt; 50% capaian</div></div>
+      <div class="kpi-card teal"><div class="kpi-icon">📈</div><div class="kpi-value" id="k-avg">—</div><div class="kpi-label">Rata-rata Capaian</div><div class="kpi-sub">Keseluruhan IK</div></div>
+    </div>
+
+    <div class="section-label" style="margin-top:28px">Detail per Triwulan</div>
+    <div class="table-wrap">
+      <div class="table-head"><h3>Rekap Capaian per Triwulan</h3><span id="tbl-info">—</span></div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr>
+            <th>No</th><th class="left">Indikator Kinerja</th>
+            <th>Target</th>
+            <th class="tw1">TW 1<br><small>Jan–Mar</small></th>
+            <th class="tw2">TW 2<br><small>Apr–Jun</small></th>
+            <th class="tw3">TW 3<br><small>Jul–Sep</small></th>
+            <th class="tw4">TW 4<br><small>Okt–Des</small></th>
+            <th class="kumul">Kumulatif</th>
+            <th>% Capaian</th><th>Status</th>
+          </tr></thead>
+          <tbody id="tbody-tw"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="update-bar" style="margin-top:16px">
+      <div><span>Data dari Google Sheets · Terakhir refresh: </span><strong id="refresh-time">—</strong></div>
+      <span style="color:rgba(255,255,255,.3);font-size:11px;font-family:'DM Mono',monospace">Update Sheets → klik Refresh</span>
+    </div>
+  </div>
+
+  <!-- ══ TAB BULANAN ══ -->
+  <div class="tab-content" id="tab-bulanan">
+    <div class="section-label">Filter Triwulan</div>
+    <div class="month-controls">
+      <span style="font-size:12px;font-weight:600;color:var(--gray-600)">Tampilkan:</span>
+      <button class="tw-filter-btn tw1 active" onclick="filterTW(1,this)">TW 1 (Jan–Mar)</button>
+      <button class="tw-filter-btn tw2" onclick="filterTW(2,this)">TW 2 (Apr–Jun)</button>
+      <button class="tw-filter-btn tw3" onclick="filterTW(3,this)">TW 3 (Jul–Sep)</button>
+      <button class="tw-filter-btn tw4" onclick="filterTW(4,this)">TW 4 (Okt–Des)</button>
+    </div>
+
+    <div class="section-label">Heatmap Capaian Bulanan</div>
+    <div class="heatmap-wrap">
+      <div class="heatmap-head">
+        <h3>Capaian per Bulan per Indikator</h3>
+        <span style="font-size:11px;color:var(--gray-400)">🟢 Baik &nbsp; 🟡 Sedang &nbsp; 🔴 Rendah &nbsp; — Belum</span>
+      </div>
+      <div style="overflow-x:auto"><table class="heatmap-table" id="heatmap-table"></table></div>
+    </div>
+
+    <div class="section-label" style="margin-top:24px">Detail Kegiatan per Bulan</div>
+    <div class="table-wrap">
+      <div class="table-head"><h3 id="ket-title">Keterangan Kegiatan</h3><span></span></div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr>
+            <th>No</th><th class="left">Indikator</th>
+            <th id="col1">Bln 1</th><th id="col2">Bln 2</th><th id="col3">Bln 3</th>
+            <th>Total TW</th>
+          </tr></thead>
+          <tbody id="tbody-ket"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section-label" style="margin-top:24px">Ringkasan per Bulan</div>
+    <div class="monthly-kpi-grid" id="monthly-kpi"></div>
+  </div>
+
+  <!-- ══ TAB GRAFIK ══ -->
+  <div class="tab-content" id="tab-grafik">
+    <div class="section-label">Grafik Perbandingan</div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Kumulatif vs Target Tahunan</div>
+        <div class="chart-sub">Perbandingan capaian kumulatif dengan target</div>
+        <div class="chart-canvas-wrap"><canvas id="chart-kumul"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Capaian per Triwulan (Stacked)</div>
+        <div class="chart-sub">Distribusi TW1 s/d TW4 per indikator</div>
+        <div class="chart-canvas-wrap"><canvas id="chart-tw"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">% Capaian per Indikator</div>
+        <div class="chart-sub">Persentase pencapaian masing-masing IK</div>
+        <div class="chart-canvas-wrap tall"><canvas id="chart-pct"></canvas></div>
+      </div>
+      <div class="chart-card" style="display:flex;flex-direction:column;align-items:center">
+        <div style="width:100%">
+          <div class="chart-title">Distribusi Status</div>
+          <div class="chart-sub">Proporsi status seluruh indikator</div>
+        </div>
+        <div style="width:280px;height:280px;display:flex;align-items:center;justify-content:center">
+          <canvas id="chart-status"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-label" style="margin-top:24px">Tren Capaian Bulanan per Indikator</div>
+    <div class="chart-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div><div class="chart-title">Tren Bulanan</div><div class="chart-sub">Pilih indikator untuk lihat tren per bulan</div></div>
+        <div class="ik-selector" id="ik-selector"></div>
+      </div>
+      <div class="chart-canvas-wrap"><canvas id="chart-trend"></canvas></div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ══════════════════════════════════════════════
+// CONFIG — URL CSV dari Google Sheets
+// ══════════════════════════════════════════════
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQMyyzBuvvA2wrrbyodB5iiYjju63nvv_K7Pu2sRptSZ6e6E8YYtZFPDOJXdJOoNTZGSNp3lFIuMZYY/pub?gid=1698185239&single=true&output=csv';
+
+// CORS proxy untuk fetch CSV dari browser
+const PROXY = 'https://api.allorigins.win/raw?url=';
+
+const MONTHS = [
+  {key:'jan',lbl:'Januari',tw:1},{key:'feb',lbl:'Februari',tw:1},{key:'mar',lbl:'Maret',tw:1},
+  {key:'apr',lbl:'April',tw:2},{key:'mei',lbl:'Mei',tw:2},{key:'jun',lbl:'Juni',tw:2},
+  {key:'jul',lbl:'Juli',tw:3},{key:'ags',lbl:'Agustus',tw:3},{key:'sep',lbl:'September',tw:3},
+  {key:'okt',lbl:'Oktober',tw:4},{key:'nov',lbl:'November',tw:4},{key:'des',lbl:'Desember',tw:4},
+];
+
+const TW_MONTHS = {1:['jan','feb','mar'],2:['apr','mei','jun'],3:['jul','ags','sep'],4:['okt','nov','des']};
+const TW_LABELS = {1:'Jan–Mar',2:'Apr–Jun',3:'Jul–Sep',4:'Okt–Des'};
+
+let DATA = [];
+let currentTW = 1;
+let selectedIK = 0;
+let charts = {};
+
+// ══════════════════════════════════════════════
+// CSV PARSER
+// ══════════════════════════════════════════════
+function parseCSV(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+  const rows = lines.map(line => {
+    const cells = [];
+    let cur = '', inQuote = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQuote = !inQuote; }
+      else if (ch === ',' && !inQuote) { cells.push(cur.trim()); cur = ''; }
+      else { cur += ch; }
+    }
+    cells.push(cur.trim());
+    return cells;
+  });
+  return rows;
+}
+
+function parseNum(v) {
+  if (!v || v === '' || v === '-' || v === '—') return 0;
+  return parseInt(v.replace(/[^0-9]/g,'')) || 0;
+}
+
+// ══════════════════════════════════════════════
+// LOAD DATA FROM GOOGLE SHEETS
+// ══════════════════════════════════════════════
+async function loadData() {
+  showLoading(true);
+  try {
+    const res = await fetch(PROXY + encodeURIComponent(CSV_URL));
+    if (!res.ok) throw new Error('Gagal mengambil data');
+    const text = await res.text();
+    const rows = parseCSV(text);
+
+    // Skip rows 1-3 (title, TW header, column header)
+    // Data rows start at index 3 (row 4 in sheet)
+    // Column mapping based on screenshot:
+    // 0=NO, 1=INDIKATOR, 2=TARGET, 3=SAT
+    // 4=Jan_Cap, 5=Jan_Ket, 6=Feb_Cap, 7=Feb_Ket, 8=Mar_Cap, 9=Mar_Ket, 10=TW1
+    // 11=Apr_Cap, 12=Apr_Ket, 13=Mei_Cap, 14=Mei_Ket, 15=Jun_Cap, 16=Jun_Ket, 17=TW2
+    // 18=Jul_Cap, 19=Jul_Ket, 20=Ags_Cap, 21=Ags_Ket, 22=Sep_Cap, 23=Sep_Ket, 24=TW3
+    // 25=Okt_Cap, 26=Okt_Ket, 27=Nov_Cap, 28=Nov_Ket, 29=Des_Cap, 30=Des_Ket, 31=TW4
+    // 32=KUMULATIF, 33=%CAPAIAN, 34=SELISIH, 35=PIC, 36=HAMBATAN
+
+    DATA = [];
+    for (let i = 3; i < rows.length; i++) {
+      const r = rows[i];
+      if (!r[0] || !r[1] || r[0].trim() === '') continue;
+      const no = parseInt(r[0]) || (i - 2);
+      if (isNaN(no) || no < 1 || no > 10) continue;
+
+      const ik = {
+        no, label: r[1] || '', target: parseNum(r[2]), sat: r[3] || '',
+        bulan: {
+          jan: { cap: parseNum(r[4]),  ket: r[5]  || '' },
+          feb: { cap: parseNum(r[6]),  ket: r[7]  || '' },
+          mar: { cap: parseNum(r[8]),  ket: r[9]  || '' },
+          apr: { cap: parseNum(r[11]), ket: r[12] || '' },
+          mei: { cap: parseNum(r[13]), ket: r[14] || '' },
+          jun: { cap: parseNum(r[15]), ket: r[16] || '' },
+          jul: { cap: parseNum(r[18]), ket: r[19] || '' },
+          ags: { cap: parseNum(r[20]), ket: r[21] || '' },
+          sep: { cap: parseNum(r[22]), ket: r[23] || '' },
+          okt: { cap: parseNum(r[25]), ket: r[26] || '' },
+          nov: { cap: parseNum(r[27]), ket: r[28] || '' },
+          des: { cap: parseNum(r[29]), ket: r[30] || '' },
+        },
+        tw1: parseNum(r[10]),
+        tw2: parseNum(r[17]),
+        tw3: parseNum(r[24]),
+        tw4: parseNum(r[31]),
+        kumulatif: parseNum(r[32]),
+        pic: r[35] || '',
+        hambatan: r[36] || '',
+      };
+      DATA.push(ik);
+    }
+
+    if (DATA.length === 0) throw new Error('Data tidak terbaca. Pastikan format sheet REKAP sesuai.');
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    document.getElementById('last-update').textContent = timeStr;
+    document.getElementById('refresh-time').textContent = now.toLocaleString('id-ID');
+    document.getElementById('tbl-info').textContent = `${DATA.length} indikator · Update ${timeStr}`;
+
+    renderAll();
+    showLoading(false);
+  } catch (err) {
+    showLoading(false);
+    document.getElementById('tbody-tw').innerHTML = `<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--red)">${err.message}</td></tr>`;
+    console.error(err);
+  }
+}
+
+function showLoading(show) {
+  document.getElementById('loading').classList.toggle('hidden', !show);
+}
+
+// ══════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════
+function getTW(d, tw) {
+  return TW_MONTHS[tw].reduce((s,k) => s + (d.bulan[k]?.cap || 0), 0);
+}
+function getKum(d) { return d.kumulatif || [1,2,3,4].reduce((s,tw) => s + getTW(d,tw), 0); }
+function getPct(d) { return d.target > 0 ? getKum(d) / d.target : 0; }
+function getStatus(p) {
+  if (p >= 1)   return {cls:'ok',   label:'Tercapai',       dot:'🟢'};
+  if (p >= 0.5) return {cls:'warn', label:'Perlu Perhatian',dot:'🟡'};
+  return              {cls:'danger', label:'Belum Tercapai', dot:'🔴'};
+}
+
+// ══════════════════════════════════════════════
+// RENDER ALL
+// ══════════════════════════════════════════════
+function renderAll() {
+  renderKPIs();
+  renderTableTW();
+  buildIKSelector();
+  const activeTab = document.querySelector('.tab-content.active').id;
+  if (activeTab === 'tab-bulanan') renderBulanan();
+  if (activeTab === 'tab-grafik') renderCharts();
+}
+
+function renderKPIs() {
+  const pcts = DATA.map(getPct);
+  document.getElementById('k-total').textContent = DATA.length;
+  document.getElementById('k-ok').textContent   = pcts.filter(p => p >= 1).length;
+  document.getElementById('k-warn').textContent  = pcts.filter(p => p >= 0.5 && p < 1).length;
+  document.getElementById('k-bad').textContent   = pcts.filter(p => p < 0.5).length;
+  document.getElementById('k-avg').textContent   = pcts.length ? (pcts.reduce((a,b) => a+b,0) / pcts.length * 100).toFixed(1) + '%' : '—';
+}
+
+function renderTableTW() {
+  document.getElementById('tbody-tw').innerHTML = DATA.map(d => {
+    const kum = getKum(d), p = getPct(d), st = getStatus(p);
+    const pp = Math.min(p*100, 100).toFixed(0);
+    const pt = (p*100).toFixed(1) + '%';
+    const tw1 = getTW(d,1), tw2 = getTW(d,2), tw3 = getTW(d,3), tw4 = getTW(d,4);
+    return `<tr>
+      <td class="td-no">${d.no}</td>
+      <td class="td-ik">${d.label}<br><small style="color:var(--gray-400);font-size:10px">${d.sat}</small></td>
+      <td><span class="td-target">${d.target}</span></td>
+      <td class="td-tw tw1">${tw1 || '—'}</td>
+      <td class="td-tw tw2">${tw2 || '—'}</td>
+      <td class="td-tw tw3">${tw3 || '—'}</td>
+      <td class="td-tw tw4">${tw4 || '—'}</td>
+      <td class="td-kumul">${kum}</td>
+      <td><div class="prog-wrap"><div class="prog-bar"><div class="prog-fill ${st.cls}" style="width:${pp}%"></div></div><span class="prog-pct ${st.cls}">${pt}</span></div></td>
+      <td><span class="badge ${st.cls}">${st.dot} ${st.label}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════
+// BULANAN
+// ══════════════════════════════════════════════
+function filterTW(tw, btn) {
+  currentTW = tw;
+  document.querySelectorAll('.tw-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderBulanan();
+}
+
+function renderBulanan() {
+  const mkeys = TW_MONTHS[currentTW];
+  const mlbls = mkeys.map(k => MONTHS.find(m => m.key === k).lbl);
+  document.getElementById('ket-title').textContent = `Keterangan — TW ${currentTW} (${TW_LABELS[currentTW]})`;
+  mkeys.forEach((k,i) => { document.getElementById(`col${i+1}`).textContent = mlbls[i]; });
+  renderHeatmap(mkeys, mlbls);
+  renderKetTable(mkeys, mlbls);
+  renderMonthlyKPI(mkeys, mlbls);
+}
+
+function renderHeatmap(mkeys, mlbls) {
+  const allCaps = DATA.flatMap(d => mkeys.map(k => d.bulan[k]?.cap || 0)).filter(v => v > 0);
+  const maxCap = allCaps.length ? Math.max(...allCaps) : 1;
+  let html = `<thead><tr>
+    <th class="ik-col">Indikator Kinerja</th>
+    ${mlbls.map(l => `<th>${l}</th>`).join('')}
+    <th>Total TW${currentTW}</th><th>% Target</th>
+  </tr></thead><tbody>`;
+  DATA.forEach(d => {
+    const twTotal = getTW(d, currentTW);
+    const pctTW = d.target > 0 ? (twTotal / d.target * 100).toFixed(0) + '%' : '—';
+    html += `<tr>
+      <td class="ik-col">IK${d.no}: ${d.label.substring(0,30)}…</td>
+      ${mkeys.map(k => {
+        const cap = d.bulan[k]?.cap || 0;
+        const cls = cap === 0 ? 'hm-zero' : cap/maxCap > 0.6 ? 'hm-high' : cap/maxCap > 0.2 ? 'hm-mid' : 'hm-low';
+        return `<td><span class="hm-cell ${cls}">${cap || '—'}</span></td>`;
+      }).join('')}
+      <td style="font-weight:800;color:var(--teal)">${twTotal || '—'}</td>
+      <td><span class="badge ${twTotal/d.target>=1?'ok':twTotal>0?'warn':'danger'}">${pctTW}</span></td>
+    </tr>`;
+  });
+  document.getElementById('heatmap-table').innerHTML = html + '</tbody>';
+}
+
+function renderKetTable(mkeys, mlbls) {
+  document.getElementById('tbody-ket').innerHTML = DATA.map(d => {
+    const twTotal = getTW(d, currentTW);
+    return `<tr>
+      <td class="td-no">${d.no}</td>
+      <td class="td-ik">${d.label}</td>
+      ${mkeys.map(k => {
+        const b = d.bulan[k] || {cap:0,ket:''};
+        return `<td style="text-align:left;min-width:160px;max-width:200px">
+          <div style="font-weight:700;color:var(--blue);font-size:12px;margin-bottom:2px">${b.cap||0} ${d.sat}</div>
+          <div style="font-size:10px;color:var(--gray-400);line-height:1.3">${b.ket||'—'}</div>
+        </td>`;
+      }).join('')}
+      <td style="font-weight:800;color:var(--teal);font-size:14px">${twTotal || '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderMonthlyKPI(mkeys, mlbls) {
+  const colors = ['blue','teal','green'];
+  document.getElementById('monthly-kpi').innerHTML = mkeys.map((k,i) => {
+    const total = DATA.reduce((s,d) => s + (d.bulan[k]?.cap || 0), 0);
+    const withData = DATA.filter(d => (d.bulan[k]?.cap || 0) > 0).length;
+    return `<div class="kpi-card ${colors[i]}">
+      <div class="kpi-icon">📅</div>
+      <div style="font-size:11px;font-weight:700;color:var(--gray-400);margin-bottom:4px">${mlbls[i]}</div>
+      <div class="kpi-value">${total}</div>
+      <div class="kpi-label">total capaian</div>
+      <div class="kpi-sub">${withData} dari ${DATA.length} IK ada capaian</div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════
+// CHARTS
+// ══════════════════════════════════════════════
+const C = {
+  navy:'#1E3A5F', blue:'#1B4FBF', teal:'#0891B2', green:'#059669',
+  amber:'#D97706', red:'#DC2626', purple:'#7C3AED',
+  gray100:'#F1F5F9', gray200:'#E2E8F0', gray400:'#94A3B8'
+};
+Chart.defaults.font.family = "'Plus Jakarta Sans',sans-serif";
+Chart.defaults.color = '#64748B';
+
+function renderCharts() {
+  Object.values(charts).forEach(c => c && c.destroy()); charts = {};
+  if (!DATA.length) return;
+
+  const labels  = DATA.map(d => 'IK'+d.no+': '+d.label.substring(0,14)+'…');
+  const targets = DATA.map(d => d.target);
+  const kumuls  = DATA.map(getKum);
+  const pcts    = DATA.map(d => +(getPct(d)*100).toFixed(1));
+  const gc = {color:C.gray100}, tc = {color:C.gray400,font:{size:10}};
+
+  charts.kumul = new Chart(document.getElementById('chart-kumul'), {
+    type:'bar',
+    data:{labels,datasets:[
+      {label:'Target',data:targets,backgroundColor:C.gray200,borderRadius:6,borderSkipped:false},
+      {label:'Kumulatif',data:kumuls,backgroundColor:C.teal,borderRadius:6,borderSkipped:false}
+    ]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{boxWidth:12,padding:14,font:{size:11}}},tooltip:{mode:'index',intersect:false}},
+      scales:{x:{grid:gc,ticks:tc},y:{grid:{display:false},ticks:{...tc,font:{size:10}}}}}
+  });
+
+  charts.tw = new Chart(document.getElementById('chart-tw'), {
+    type:'bar',
+    data:{labels,datasets:[
+      {label:'TW1',data:DATA.map(d=>getTW(d,1)),backgroundColor:C.navy,borderRadius:4},
+      {label:'TW2',data:DATA.map(d=>getTW(d,2)),backgroundColor:C.green,borderRadius:4},
+      {label:'TW3',data:DATA.map(d=>getTW(d,3)),backgroundColor:C.purple,borderRadius:4},
+      {label:'TW4',data:DATA.map(d=>getTW(d,4)),backgroundColor:C.amber,borderRadius:4},
+    ]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{boxWidth:12,padding:10,font:{size:11}}},tooltip:{mode:'index',intersect:false}},
+      scales:{x:{stacked:true,grid:gc,ticks:tc},y:{stacked:true,grid:{display:false},ticks:{...tc,font:{size:10}}}}}
+  });
+
+  charts.pct = new Chart(document.getElementById('chart-pct'), {
+    type:'bar',
+    data:{labels:DATA.map(d=>'IK'+d.no),datasets:[{
+      label:'% Capaian',data:pcts,
+      backgroundColor:pcts.map(p=>p>=100?C.green:p>=50?C.amber:C.red),
+      borderRadius:8,borderSkipped:false
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.raw}%`}}},
+      scales:{x:{grid:{display:false},ticks:tc},y:{grid:gc,ticks:{...tc,callback:v=>v+'%'},max:120,beginAtZero:true}}}
+  });
+
+  const ok=pcts.filter(p=>p>=100).length, warn=pcts.filter(p=>p>=50&&p<100).length, bad=pcts.filter(p=>p<50).length;
+  charts.status = new Chart(document.getElementById('chart-status'), {
+    type:'doughnut',
+    data:{labels:['Tercapai','Perlu Perhatian','Belum Tercapai'],
+      datasets:[{data:[ok,warn,bad],backgroundColor:[C.green,C.amber,C.red],borderWidth:3,borderColor:'#fff',hoverOffset:6}]},
+    options:{responsive:true,maintainAspectRatio:true,cutout:'58%',
+      plugins:{legend:{position:'bottom',labels:{boxWidth:12,padding:12,font:{size:11}}},
+        tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.raw} IK`}}}}
+  });
+
+  renderTrendChart();
+}
+
+function buildIKSelector() {
+  document.getElementById('ik-selector').innerHTML = DATA.map((d,i) =>
+    `<button class="ik-sel-btn${i===0?' active':''}" onclick="selectIK(${i},this)">IK${d.no}</button>`
+  ).join('');
+}
+
+function selectIK(i, btn) {
+  selectedIK = i;
+  document.querySelectorAll('.ik-sel-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTrendChart();
+}
+
+function renderTrendChart() {
+  if (charts.trend) { charts.trend.destroy(); charts.trend = null; }
+  if (!DATA[selectedIK]) return;
+  const d = DATA[selectedIK];
+  const monthCaps = MONTHS.map(m => d.bulan[m.key]?.cap || 0);
+  const monthLabels = MONTHS.map(m => m.lbl.substring(0,3));
+  const cumData = monthCaps.reduce((acc,v,i) => { acc.push((acc[i-1]||0)+v); return acc; }, []);
+
+  charts.trend = new Chart(document.getElementById('chart-trend'), {
+    type:'bar',
+    data:{labels:monthLabels,datasets:[
+      {label:'Capaian Bulan Ini',data:monthCaps,
+        backgroundColor:MONTHS.map(m=>m.tw===1?C.navy:m.tw===2?C.green:m.tw===3?C.purple:C.amber),
+        borderRadius:6,borderSkipped:false,yAxisID:'y'},
+      {label:'Kumulatif',data:cumData,type:'line',borderColor:C.teal,backgroundColor:'rgba(8,145,178,.08)',
+        borderWidth:2.5,pointRadius:4,pointBackgroundColor:C.teal,tension:.3,fill:true,yAxisID:'y'},
+      {label:'Target',data:Array(12).fill(d.target),type:'line',borderColor:C.red,
+        borderDash:[6,4],borderWidth:1.5,pointRadius:0,yAxisID:'y'},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{
+        title:{display:true,text:`IK${d.no}: ${d.label}`,font:{size:12,weight:'600'},color:'#1E293B',padding:{bottom:4}},
+        legend:{position:'bottom',labels:{boxWidth:12,padding:14,font:{size:11}}},
+        tooltip:{mode:'index',intersect:false}
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{color:C.gray400,font:{size:10}}},
+        y:{grid:{color:C.gray100},ticks:{color:C.gray400,font:{size:10}},beginAtZero:true}
+      }}
+  });
+}
+
+// ══════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  btn.classList.add('active');
+  if (id === 'grafik') setTimeout(renderCharts, 50);
+  if (id === 'bulanan') renderBulanan();
+}
+
+// ══════════════════════════════════════════════
+// AUTO REFRESH setiap 5 menit
+// ══════════════════════════════════════════════
+loadData();
+setInterval(loadData, 5 * 60 * 1000);
+</script>
+</body>
+</html>
